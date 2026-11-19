@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  HQ_ADMIN
+  OUTLET_STAFF
+}
+
+enum StockMovementType {
+  RESTOCK
+  ADJUSTMENT
+  SALE
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  fullName     String   @map("full_name") @db.VarChar(150)
+  role         Role
+  outletId     String?  @map("outlet_id") @db.Uuid
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  outlet         Outlet?         @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  sales          Sale[]          @relation("CashierSales")
+  stockMovements StockMovement[] @relation("StockMovementActor")
+
+  @@index([outletId])
+  @@index([role, isActive])
+  @@map("users")
+}
+
+model Outlet {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique @db.VarChar(50)
+  name      String   @db.VarChar(150)
+  address   String?  @db.VarChar(255)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  users           User[]
+  outletMenuItems OutletMenuItem[]
+  sales           Sale[]
+  receiptCounter  ReceiptCounter?
+  stockMovements  StockMovement[]
+
+  @@index([isActive])
+  @@map("outlets")
+}
+
+model MenuItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  sku         String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(150)
+  category    String   @db.VarChar(100)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  outletMenuItems OutletMenuItem[]
+
+  @@index([isActive, category])
+  @@index([name])
+  @@map("menu_items")
+}
+
+model OutletMenuItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  outletId    String   @map("outlet_id") @db.Uuid
+  menuItemId  String   @map("menu_item_id") @db.Uuid
+  priceCents  Int      @map("price_cents")
+  isAvailable Boolean  @default(true) @map("is_available")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  outlet         Outlet           @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  menuItem       MenuItem         @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  inventory      OutletInventory?
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+
+  @@unique([outletId, menuItemId])
+  @@index([outletId, isAvailable])
+  @@index([menuItemId])
+  @@map("outlet_menu_items")
+}
+
+model OutletInventory {
+  id                String   @id @default(uuid()) @db.Uuid
+  outletMenuItemId  String   @unique @map("outlet_menu_item_id") @db.Uuid
+  quantity          Int      @default(0) @map("quantity")
+  lowStockThreshold Int      @default(0) @map("low_stock_threshold")
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  outletMenuItem OutletMenuItem @relation(fields: [outletMenuItemId], references: [id], onDelete: Cascade)
+
+  @@index([quantity])
+  @@map("outlet_inventory")
+}
+
+model StockMovement {
+  id               String            @id @default(uuid()) @db.Uuid
+  outletMenuItemId String            @map("outlet_menu_item_id") @db.Uuid
+  outletId         String            @map("outlet_id") @db.Uuid
+  movementType     StockMovementType @map("movement_type")
+  quantityBefore   Int               @map("quantity_before")
+  quantityChange   Int               @map("quantity_change")
+  quantityAfter    Int               @map("quantity_after")
+  actorUserId      String?           @map("actor_user_id") @db.Uuid
+  saleId           String?           @map("sale_id") @db.Uuid
+  note             String?           @db.VarChar(255)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  outletMenuItem OutletMenuItem @relation(fields: [outletMenuItemId], references: [id], onDelete: Cascade)
+  outlet         Outlet         @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  actor          User?          @relation("StockMovementActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  sale           Sale?          @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  @@index([outletId, createdAt])
+  @@index([outletMenuItemId, createdAt])
+  @@index([saleId])
+  @@map("stock_movements")
+}
+
+model Sale {
+  id             String   @id @default(uuid()) @db.Uuid
+  outletId       String   @map("outlet_id") @db.Uuid
+  cashierId      String   @map("cashier_id") @db.Uuid
+  receiptNumber  Int      @map("receipt_number")
+  totalCents     Int      @map("total_cents")
+  idempotencyKey String?  @map("idempotency_key") @db.VarChar(100)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  outlet         Outlet          @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  cashier        User            @relation("CashierSales", fields: [cashierId], references: [id], onDelete: Restrict)
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+
+  @@unique([outletId, receiptNumber])
+  @@unique([outletId, idempotencyKey])
+  @@index([outletId, createdAt])
+  @@index([createdAt, outletId])
+  @@index([cashierId])
+  @@map("sales")
+}
+
+model SaleItem {
+  id               String @id @default(uuid()) @db.Uuid
+  saleId           String @map("sale_id") @db.Uuid
+  outletMenuItemId String @map("outlet_menu_item_id") @db.Uuid
+  menuItemName     String @map("menu_item_name") @db.VarChar(150)
+  menuItemSku      String @map("menu_item_sku") @db.VarChar(50)
+  quantity         Int
+  unitPriceCents   Int    @map("unit_price_cents")
+  lineTotalCents   Int    @map("line_total_cents")
+
+  sale           Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  outletMenuItem OutletMenuItem @relation(fields: [outletMenuItemId], references: [id], onDelete: Restrict)
+
+  @@index([saleId])
+  @@index([saleId, menuItemSku])
+  @@index([outletMenuItemId])
+  @@index([menuItemSku])
+  @@map("sale_items")
+}
+
+model ReceiptCounter {
+  outletId   String @id @map("outlet_id") @db.Uuid
+  nextNumber Int    @default(0) @map("next_number")
+
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@map("receipt_counters")
+}
