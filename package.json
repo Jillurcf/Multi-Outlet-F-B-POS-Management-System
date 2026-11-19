@@ -1,0 +1,35 @@
+{
+  "name": "multi-outlet-fnb-pos",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @pos/shared && npm run build -w @pos/api && npm run build -w @pos/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "node ./node_modules/eslint/bin/eslint.js .",
+    "test": "npm run test --workspaces --if-present",
+    "verify": "npm run lint && npm run build && npm run typecheck && npm test",
+    "dev:api": "npm run build -w @pos/shared && npm run dev -w @pos/api",
+    "dev:web": "npm run build -w @pos/shared && npm run dev -w @pos/web",
+    "prisma:generate": "npm run prisma:generate -w @pos/api",
+    "prisma:migrate": "npm run prisma:migrate -w @pos/api",
+    "prisma:migrate:deploy": "npm run prisma:migrate:deploy -w @pos/api",
+    "prisma:seed": "npm run prisma:seed -w @pos/api",
+    "prisma:studio": "npm run prisma:studio -w @pos/api",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "postinstall": "npm run prisma:generate -w @pos/api"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "eslint": "^9.35.0",
+    "globals": "^16.4.0",
+    "typescript-eslint": "^8.43.0"
+  }
+}
