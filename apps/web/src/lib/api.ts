@@ -22,9 +22,11 @@ import type {
 import { demoAdapter } from './demo';
 
 const TOKEN_KEY = 'pos_token';
-const baseURL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api';
+const apiUrl = import.meta.env.VITE_API_URL;
+const demoFlag = import.meta.env.VITE_DEMO_MODE;
+const baseURL = apiUrl ?? 'http://localhost:4000/api';
 
-export const demoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+export const demoMode = demoFlag === 'true' || (demoFlag !== 'false' && !apiUrl);
 
 export const api = axios.create({
   baseURL,
