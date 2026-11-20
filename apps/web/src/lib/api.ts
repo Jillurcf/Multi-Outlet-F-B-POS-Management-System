@@ -19,11 +19,17 @@ import type {
   StockMovementDto,
   TopSellingItemDto
 } from '@pos/shared';
+import { demoAdapter } from './demo';
 
 const TOKEN_KEY = 'pos_token';
 const baseURL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api';
 
-export const api = axios.create({ baseURL });
+export const demoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+
+export const api = axios.create({
+  baseURL,
+  ...(demoMode ? { adapter: demoAdapter } : {})
+});
 
 api.interceptors.request.use((config) => {
   const token = tokenStorage.get();
