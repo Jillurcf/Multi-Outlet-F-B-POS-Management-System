@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm ci --ignore-scripts",
+  "installCommand": "npm ci --ignore-scripts --include=dev",
   "buildCommand": "npm run build -w @pos/shared && npm run build -w @pos/web",
   "outputDirectory": "dist",
   "framework": "vite"
